@@ -1,10 +1,10 @@
-v1.2
+v1.3
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Upload Only</title>
+    <title>High-Quality Camera Upload</title>
     <style>
         body {
             text-align: center;
@@ -52,10 +52,11 @@ v1.2
     <h2>Upload an Image</h2>
     
     <form id="uploadForm" action="/upload" method="POST">
-        <button type="button" id="uploadBtn">Upload</button>
+        <button type="button" id="uploadBtn">Open Camera</button>
         <video id="cameraFeed" autoplay></video>
         <button type="button" id="captureBtn">Capture Photo</button>
-        <canvas id="canvas" style="display:none;"></canvas>
+        <canvas id="fullCanvas" style="display:none;"></canvas>
+        <canvas id="compressedCanvas" style="display:none;"></canvas>
         
         <h3>Preview:</h3>
         <img id="preview" alt="Image Preview">
@@ -68,22 +69,23 @@ v1.2
     <script>
         const uploadBtn = document.getElementById('uploadBtn');
         const video = document.getElementById('cameraFeed');
-        const canvas = document.getElementById('canvas');
+        const fullCanvas = document.getElementById('fullCanvas');
+        const compressedCanvas = document.getElementById('compressedCanvas');
         const preview = document.getElementById('preview');
         const captureBtn = document.getElementById('captureBtn');
         const imageDataInput = document.getElementById('imageData');
         const submitBtn = document.getElementById('submitBtn');
 
-        let stream;  // Store the camera stream
+        let stream;
 
-        // Open camera with high resolution
+        // Open camera with the highest possible resolution
         uploadBtn.addEventListener('click', async function () {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: "environment",
-                        width: { ideal: 1920 }, // Request 1920px width
-                        height: { ideal: 1080 } // Request 1080px height
+                        width: { ideal: 3840 }, // Request 4K if available
+                        height: { ideal: 2160 } 
                     } 
                 });
                 video.srcObject = stream;
@@ -94,20 +96,33 @@ v1.2
             }
         });
 
-        // Capture image from video feed in high quality
+        // Capture image and compress before previewing
         captureBtn.addEventListener('click', function () {
-            const context = canvas.getContext('2d');
+            const fullContext = fullCanvas.getContext('2d');
+            const compressedContext = compressedCanvas.getContext('2d');
 
-            // Use video stream settings to get the best resolution
+            // Get the best possible resolution from the camera
             const track = stream.getVideoTracks()[0];
-            const capabilities = track.getCapabilities();
-            canvas.width = capabilities.width.max || video.videoWidth;
-            canvas.height = capabilities.height.max || video.videoHeight;
+            const settings = track.getSettings();
 
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const fullWidth = settings.width || video.videoWidth;
+            const fullHeight = settings.height || video.videoHeight;
 
-            // Convert image to Base64
-            const imageData = canvas.toDataURL("image/png", 1.0); // 1.0 = highest quality
+            // Capture full resolution image
+            fullCanvas.width = fullWidth;
+            fullCanvas.height = fullHeight;
+            fullContext.drawImage(video, 0, 0, fullWidth, fullHeight);
+
+            // Compress image to Full HD (1920x1080)
+            const compressedWidth = 1920;
+            const compressedHeight = Math.round((1920 / fullWidth) * fullHeight);
+
+            compressedCanvas.width = compressedWidth;
+            compressedCanvas.height = compressedHeight;
+            compressedContext.drawImage(fullCanvas, 0, 0, compressedWidth, compressedHeight);
+
+            // Convert to Base64 for preview and form submission
+            const imageData = compressedCanvas.toDataURL("image/jpeg", 0.8); // 80% quality
             preview.src = imageData;
             preview.style.display = "block";
             imageDataInput.value = imageData;
