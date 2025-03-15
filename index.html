@@ -1,109 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Upload Only</title>
-    <style>
-        body {
-            text-align: center;
-            font-family: Arial, sans-serif;
+<script>
+    const uploadBtn = document.getElementById('uploadBtn');
+    const video = document.getElementById('cameraFeed');
+    const canvas = document.getElementById('canvas');
+    const preview = document.getElementById('preview');
+    const captureBtn = document.getElementById('captureBtn');
+    const imageDataInput = document.getElementById('imageData');
+    const submitBtn = document.getElementById('submitBtn');
+
+    let stream;  // Store the camera stream
+
+    // Open camera with high resolution
+    uploadBtn.addEventListener('click', async function () {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: "environment",
+                    width: { ideal: 1920 }, // Request 1920px width
+                    height: { ideal: 1080 } // Request 1080px height
+                } 
+            });
+            video.srcObject = stream;
+            video.style.display = "block";
+            captureBtn.style.display = "block";
+        } catch (error) {
+            alert("Camera access denied or unavailable.");
         }
-        video {
-            width: 100%;
-            max-width: 400px;
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-            background: black;
-            z-index: 1000;
-        }
-        #preview {
-            display: none;
-            width: 100%;
-            max-width: 300px;
-            margin-top: 10px;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        #captureBtn {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1001;
-            display: none;
-        }
-    </style>
-</head>
-<body>
+    });
 
-    <h2>Upload an Image</h2>
-    
-    <form id="uploadForm" action="/upload" method="POST">
-        <button type="button" id="uploadBtn">Upload</button>
-        <video id="cameraFeed" autoplay></video>
-        <button type="button" id="captureBtn">Capture Photo</button>
-        <canvas id="canvas" style="display:none;"></canvas>
-        
-        <h3>Preview:</h3>
-        <img id="preview" alt="Image Preview">
-        
-        <input type="hidden" name="imageData" id="imageData">
-        <br>
-        <button type="submit" id="submitBtn" style="display:none;">Submit</button>
-    </form>
+    // Capture image from video feed in high quality
+    captureBtn.addEventListener('click', function () {
+        const context = canvas.getContext('2d');
 
-    <script>
-        const uploadBtn = document.getElementById('uploadBtn');
-        const video = document.getElementById('cameraFeed');
-        const canvas = document.getElementById('canvas');
-        const preview = document.getElementById('preview');
-        const captureBtn = document.getElementById('captureBtn');
-        const imageDataInput = document.getElementById('imageData');
-        const submitBtn = document.getElementById('submitBtn');
+        // Use video stream settings to get the best resolution
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities();
+        canvas.width = capabilities.width.max || video.videoWidth;
+        canvas.height = capabilities.height.max || video.videoHeight;
 
-        // Open camera in full-screen mode
-        uploadBtn.addEventListener('click', async function () {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = stream;
-                video.style.display = "block";
-                captureBtn.style.display = "block";
-            } catch (error) {
-                alert("Camera access denied or unavailable.");
-            }
-        });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Capture image from video feed
-        captureBtn.addEventListener('click', function () {
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Convert image to Base64
+        const imageData = canvas.toDataURL("image/png", 1.0); // 1.0 = highest quality
+        preview.src = imageData;
+        preview.style.display = "block";
+        imageDataInput.value = imageData;
+        submitBtn.style.display = "block";
 
-            // Convert image to Base64
-            const imageData = canvas.toDataURL("image/png");
-            preview.src = imageData;
-            preview.style.display = "block";
-            imageDataInput.value = imageData;
-            submitBtn.style.display = "block";
+        // Stop camera
+        video.style.display = "none";
+        captureBtn.style.display = "none";
+        stream.getTracks().forEach(track => track.stop());
+    });
 
-            // Stop camera
-            video.style.display = "none";
-            captureBtn.style.display = "none";
-            video.srcObject.getTracks().forEach(track => track.stop());
-        });
-
-    </script>
-
-</body>
-</html>
+</script>
