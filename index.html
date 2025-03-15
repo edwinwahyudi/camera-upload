@@ -1,10 +1,10 @@
-v1.3
+v1.5
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High-Quality Camera Upload</title>
+    <title>Multi-Image Camera Upload</title>
     <style>
         body {
             text-align: center;
@@ -23,13 +23,35 @@ v1.3
             background: black;
             z-index: 1000;
         }
-        #preview {
-            display: none;
-            width: 100%;
-            max-width: 300px;
+        .preview-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             margin-top: 10px;
+        }
+        .preview-wrapper {
+            position: relative;
+            margin: 5px;
+        }
+        .preview-wrapper img {
+            width: 100px;
+            height: auto;
             border: 2px solid #ccc;
             border-radius: 5px;
+        }
+        .delete-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: red;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
         }
         button {
             margin-top: 10px;
@@ -49,7 +71,7 @@ v1.3
 </head>
 <body>
 
-    <h2>Upload an Image</h2>
+    <h2>Upload Multiple Images</h2>
     
     <form id="uploadForm" action="/upload" method="POST">
         <button type="button" id="uploadBtn">Open Camera</button>
@@ -58,9 +80,9 @@ v1.3
         <canvas id="fullCanvas" style="display:none;"></canvas>
         <canvas id="compressedCanvas" style="display:none;"></canvas>
         
-        <h3>Preview:</h3>
-        <img id="preview" alt="Image Preview">
-        
+        <h3>Preview (Max 5):</h3>
+        <div class="preview-container" id="previewContainer"></div>
+
         <input type="hidden" name="imageData" id="imageData">
         <br>
         <button type="submit" id="submitBtn" style="display:none;">Submit</button>
@@ -71,12 +93,13 @@ v1.3
         const video = document.getElementById('cameraFeed');
         const fullCanvas = document.getElementById('fullCanvas');
         const compressedCanvas = document.getElementById('compressedCanvas');
-        const preview = document.getElementById('preview');
         const captureBtn = document.getElementById('captureBtn');
+        const previewContainer = document.getElementById('previewContainer');
         const imageDataInput = document.getElementById('imageData');
         const submitBtn = document.getElementById('submitBtn');
 
         let stream;
+        let imageArray = [];
 
         // Open camera with the highest possible resolution
         uploadBtn.addEventListener('click', async function () {
@@ -98,6 +121,11 @@ v1.3
 
         // Capture image and compress before previewing
         captureBtn.addEventListener('click', function () {
+            if (imageArray.length >= 5) {
+                alert("You can only upload up to 5 images.");
+                return;
+            }
+
             const fullContext = fullCanvas.getContext('2d');
             const compressedContext = compressedCanvas.getContext('2d');
 
@@ -123,16 +151,47 @@ v1.3
 
             // Convert to Base64 for preview and form submission
             const imageData = compressedCanvas.toDataURL("image/jpeg", 0.8); // 80% quality
-            preview.src = imageData;
-            preview.style.display = "block";
-            imageDataInput.value = imageData;
-            submitBtn.style.display = "block";
+            imageArray.push(imageData);
 
-            // Stop camera
-            video.style.display = "none";
-            captureBtn.style.display = "none";
-            stream.getTracks().forEach(track => track.stop());
+            updatePreview();
         });
+
+        // Update preview images
+        function updatePreview() {
+            previewContainer.innerHTML = "";
+            imageArray.forEach((imageData, index) => {
+                const wrapper = document.createElement("div");
+                wrapper.classList.add("preview-wrapper");
+
+                const img = document.createElement("img");
+                img.src = imageData;
+
+                const deleteBtn = document.createElement("button");
+                deleteBtn.innerText = "✖";
+                deleteBtn.classList.add("delete-btn");
+                deleteBtn.onclick = () => removeImage(index);
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(deleteBtn);
+                previewContainer.appendChild(wrapper);
+            });
+
+            // Update hidden input field
+            imageDataInput.value = JSON.stringify(imageArray);
+
+            // Show submit button if at least 1 image
+            submitBtn.style.display = imageArray.length > 0 ? "block" : "none";
+
+            // Disable capture button if 5 images reached
+            captureBtn.disabled = imageArray.length >= 5;
+        }
+
+        // Remove an image from preview
+        function removeImage(index) {
+            imageArray.splice(index, 1);
+            updatePreview();
+            captureBtn.disabled = false;
+        }
 
     </script>
 
