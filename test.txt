@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Upload Only</title>
+    <style>
+        video {
+            width: 100%;
+            max-width: 400px;
+            display: none;
+        }
+        #preview {
+            display: none;
+            width: 100%;
+            max-width: 300px;
+            margin-top: 10px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Take a Picture Using Camera</h2>
+    
+    <video id="cameraFeed" autoplay></video>
+    <button id="captureBtn">Capture Photo</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+    
+    <h3>Preview:</h3>
+    <img id="preview" alt="Image Preview">
+    
+    <script>
+        const video = document.getElementById('cameraFeed');
+        const canvas = document.getElementById('canvas');
+        const preview = document.getElementById('preview');
+        const captureBtn = document.getElementById('captureBtn');
+
+        // Request camera access
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                video.style.display = "block";
+            } catch (error) {
+                alert("Camera access denied or unavailable.");
+            }
+        }
+
+        // Capture image from video feed
+        captureBtn.addEventListener('click', function () {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert the image to a data URL
+            preview.src = canvas.toDataURL("image/png");
+            preview.style.display = "block";
+        });
+
+        // Start camera when page loads
+        startCamera();
+    </script>
+</body>
+</html>
