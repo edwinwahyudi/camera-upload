@@ -1,4 +1,4 @@
-v1.5
+v1.6
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -59,13 +59,17 @@ v1.5
             font-size: 16px;
             cursor: pointer;
         }
-        #captureBtn {
+        #captureBtn, #backBtn {
             position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1001;
             display: none;
+        }
+        #backBtn {
+            bottom: 60px;
+            background-color: gray;
         }
     </style>
 </head>
@@ -77,6 +81,7 @@ v1.5
         <button type="button" id="uploadBtn">Open Camera</button>
         <video id="cameraFeed" autoplay></video>
         <button type="button" id="captureBtn">Capture Photo</button>
+        <button type="button" id="backBtn">Back</button>
         <canvas id="fullCanvas" style="display:none;"></canvas>
         <canvas id="compressedCanvas" style="display:none;"></canvas>
         
@@ -94,6 +99,7 @@ v1.5
         const fullCanvas = document.getElementById('fullCanvas');
         const compressedCanvas = document.getElementById('compressedCanvas');
         const captureBtn = document.getElementById('captureBtn');
+        const backBtn = document.getElementById('backBtn');
         const previewContainer = document.getElementById('previewContainer');
         const imageDataInput = document.getElementById('imageData');
         const submitBtn = document.getElementById('submitBtn');
@@ -101,7 +107,7 @@ v1.5
         let stream;
         let imageArray = [];
 
-        // Open camera with the highest possible resolution
+        // Open camera with highest resolution
         uploadBtn.addEventListener('click', async function () {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
@@ -114,12 +120,13 @@ v1.5
                 video.srcObject = stream;
                 video.style.display = "block";
                 captureBtn.style.display = "block";
+                backBtn.style.display = "block";
             } catch (error) {
                 alert("Camera access denied or unavailable.");
             }
         });
 
-        // Capture image and compress before previewing
+        // Capture image, close camera, and return to preview
         captureBtn.addEventListener('click', function () {
             if (imageArray.length >= 5) {
                 alert("You can only upload up to 5 images.");
@@ -129,19 +136,17 @@ v1.5
             const fullContext = fullCanvas.getContext('2d');
             const compressedContext = compressedCanvas.getContext('2d');
 
-            // Get the best possible resolution from the camera
             const track = stream.getVideoTracks()[0];
             const settings = track.getSettings();
 
             const fullWidth = settings.width || video.videoWidth;
             const fullHeight = settings.height || video.videoHeight;
 
-            // Capture full resolution image
             fullCanvas.width = fullWidth;
             fullCanvas.height = fullHeight;
             fullContext.drawImage(video, 0, 0, fullWidth, fullHeight);
 
-            // Compress image to Full HD (1920x1080)
+            // Compress image to Full HD
             const compressedWidth = 1920;
             const compressedHeight = Math.round((1920 / fullWidth) * fullHeight);
 
@@ -149,11 +154,26 @@ v1.5
             compressedCanvas.height = compressedHeight;
             compressedContext.drawImage(fullCanvas, 0, 0, compressedWidth, compressedHeight);
 
-            // Convert to Base64 for preview and form submission
-            const imageData = compressedCanvas.toDataURL("image/jpeg", 0.8); // 80% quality
+            const imageData = compressedCanvas.toDataURL("image/jpeg", 0.8);
             imageArray.push(imageData);
 
+            stopCamera();
             updatePreview();
+        });
+
+        // Stop camera and return to preview
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.style.display = "none";
+                captureBtn.style.display = "none";
+                backBtn.style.display = "none";
+            }
+        }
+
+        // Handle back button
+        backBtn.addEventListener('click', function () {
+            stopCamera();
         });
 
         // Update preview images
@@ -176,23 +196,38 @@ v1.5
                 previewContainer.appendChild(wrapper);
             });
 
-            // Update hidden input field
             imageDataInput.value = JSON.stringify(imageArray);
-
-            // Show submit button if at least 1 image
             submitBtn.style.display = imageArray.length > 0 ? "block" : "none";
-
-            // Disable capture button if 5 images reached
             captureBtn.disabled = imageArray.length >= 5;
         }
 
-        // Remove an image from preview
+        // Remove image from preview
         function removeImage(index) {
             imageArray.splice(index, 1);
             updatePreview();
             captureBtn.disabled = false;
         }
 
+        // Prevent accidental navigation away
+        window.addEventListener('beforeunload', function (event) {
+            if (imageArray.length > 0) {
+                event.preventDefault();
+                event.returnValue = "Are you sure you want to leave? Your images will be lost.";
+            }
+        });
+
+        // Intercept back button on mobile browsers
+        window.addEventListener('popstate', function (event) {
+            if (imageArray.length > 0) {
+                const confirmLeave = confirm("Are you sure you want to leave? Your images will be lost.");
+                if (!confirmLeave) {
+                    history.pushState(null, null, window.location.href);
+                }
+            }
+        });
+
+        // Push initial state to history to handle back button
+        history.pushState(null, null, window.location.href);
     </script>
 
 </body>
